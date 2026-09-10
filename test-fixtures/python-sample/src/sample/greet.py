@@ -3,5 +3,4 @@ def greet(name: str) -> str:
 
 
 def farewell(name: str) -> str:
-    message = f"Goodbye, {name}!"
-    return message
+    return f"Goodbye, {name}!"
