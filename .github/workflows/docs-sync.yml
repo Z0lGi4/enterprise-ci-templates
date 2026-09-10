@@ -9,8 +9,8 @@ jobs:
   regenerate:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write       # commits the regenerated docs to a new branch
+      pull-requests: write  # opens + auto-merges the automated-docs PR
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { fetch-depth: 0 }
