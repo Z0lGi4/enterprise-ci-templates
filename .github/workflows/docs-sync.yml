@@ -40,9 +40,15 @@ jobs:
         # what it's meant to protect. Run gitleaks directly in --no-git mode
         # against docs/ instead.
         run: |
-          curl -sSL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
-          tar -xzf gitleaks.tar.gz gitleaks
-          ./gitleaks detect --no-git --source docs/ --no-banner
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_checksums.txt"
+          # -O keeps each file's original release name so it matches the entries in
+          # gitleaks_8.30.1_checksums.txt; renaming the tarball on download (e.g. -o
+          # gitleaks.tar.gz) would make --ignore-missing find nothing to check against
+          # and skip verification entirely — silently, not just on this one release.
+          sha256sum --ignore-missing -c gitleaks_8.30.1_checksums.txt
+          tar -xzf gitleaks_8.30.1_linux_x64.tar.gz gitleaks
+          ./gitleaks detect --no-git --source docs/ --no-banner -v --redact
       - name: Render deck.html to deck.pdf
         run: |
           npx --yes playwright install --with-deps chromium
@@ -63,13 +69,13 @@ jobs:
         run: |
           git config user.name "docs-sync-bot"
           git config user.email "docs-sync-bot@users.noreply.github.com"
-          if git diff --quiet -- docs/TECHNICAL_OVERVIEW.md docs/deck.html docs/deck.pdf 2>/dev/null; then
+          git add docs/TECHNICAL_OVERVIEW.md docs/deck.html docs/deck.pdf
+          if git diff --cached --quiet; then
             echo "No doc changes, skipping PR"
             exit 0
           fi
           BRANCH="automated-docs-${{ github.run_id }}"
           git checkout -b "$BRANCH"
-          git add docs/TECHNICAL_OVERVIEW.md docs/deck.html docs/deck.pdf
           git commit -m "docs: auto-regenerate technical overview and slide deck"
           git push origin "$BRANCH"
           gh pr create --title "docs: auto-regenerate technical overview and slide deck" \
