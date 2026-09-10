@@ -1,2 +1,0 @@
-# Test fixture with a leaked secret
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
