@@ -13,7 +13,7 @@ for how this was built.
 name: CI
 on: [push, pull_request]
 jobs:
-  lint:
+  ci:
     uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@main
     # or node-ci.yml for TypeScript/JavaScript repos
     secrets: inherit
