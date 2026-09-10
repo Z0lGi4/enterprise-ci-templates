@@ -1,2 +1,0 @@
-# Test fixture with a leaked secret that should be detected
-AWS_SECRET_ACCESS_KEY=AKIA2E0A8F3B9C7D1234
