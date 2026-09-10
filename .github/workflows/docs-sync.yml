@@ -31,6 +31,8 @@ jobs:
         run: |
           claude -p "Write or overwrite docs/deck.html as a concise, self-contained HTML slide deck (inline CSS, no external assets, no network requests) covering: what this product is, its architecture, and current status. Base it only on what you actually find in the repository. Do not read, quote, or reference the contents of any file matching .env*, *.pem, *.key, or anything that looks like it contains a credential, API key, or secret; if such a file is relevant to describe, name only its existence and purpose, never its contents." \
             --allowedTools "Read,Write,Glob,Grep" --max-turns 15
+      - name: Secret-scan generated docs before committing
+        uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@main
       - name: Render deck.html to deck.pdf
         run: |
           npx --yes playwright install --with-deps chromium
