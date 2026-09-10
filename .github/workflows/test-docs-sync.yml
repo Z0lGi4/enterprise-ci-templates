@@ -1,0 +1,6 @@
+name: Test - Docs Sync
+on: push
+jobs:
+  call-docs-sync:
+    uses: ./.github/workflows/docs-sync.yml
+    secrets: inherit
