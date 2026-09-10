@@ -5,4 +5,10 @@ jobs:
     uses: ./.github/workflows/python-ci.yml
     with:
       working-directory: test-fixtures/python-sample
-    secrets: inherit
+    secrets:
+      # No ANTHROPIC_API_KEY repo secret exists yet (confirmed via `gh secret
+      # list` — empty). `secrets: inherit` fails workflow_call's `required: true`
+      # validation with nothing to inherit, even though review-agent (the only
+      # job that reads this secret) is skipped on push. Placeholder is safe:
+      # never read outside a pull_request event.
+      ANTHROPIC_API_KEY: placeholder-unused-outside-pull-request
