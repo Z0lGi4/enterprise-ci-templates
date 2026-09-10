@@ -25,9 +25,13 @@ jobs:
       - working-directory: ${{ inputs.working-directory }}
         run: |
           corepack enable
-          [ -f pnpm-lock.yaml ] && pnpm install --frozen-lockfile || npm install
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm install
+          fi
       - working-directory: ${{ inputs.working-directory }}
-        run: npm run lint --if-present
+        run: npm run lint
 
   test:
     runs-on: ubuntu-latest
@@ -41,7 +45,11 @@ jobs:
       - working-directory: ${{ inputs.working-directory }}
         run: |
           corepack enable
-          [ -f pnpm-lock.yaml ] && pnpm install --frozen-lockfile || npm install
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm install
+          fi
       - name: Run tests with 80% coverage gate
         working-directory: ${{ inputs.working-directory }}
         run: npm test -- --coverage.thresholds.lines=80 --coverage.thresholds.statements=80
@@ -67,11 +75,19 @@ jobs:
       - working-directory: ${{ inputs.working-directory }}
         run: |
           corepack enable
-          [ -f pnpm-lock.yaml ] && pnpm install --frozen-lockfile || npm install
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm install
+          fi
       - name: Audit dependencies
         working-directory: ${{ inputs.working-directory }}
         run: |
-          [ -f pnpm-lock.yaml ] && pnpm audit --audit-level=high || npm audit --audit-level=high
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm audit --audit-level=high
+          else
+            npm audit --audit-level=high
+          fi
 
   review-agent:
     runs-on: ubuntu-latest
@@ -84,7 +100,9 @@ jobs:
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code@2.1.263
       - name: Get PR diff
-        run: git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff "origin/$BASE_REF"...HEAD > /tmp/pr.diff
       - name: Structured review
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
