@@ -1,2 +1,2 @@
-AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
-# This secret should be detected by gitleaks
+# Test fixture with a leaked secret
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
