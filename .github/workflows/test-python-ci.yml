@@ -1,5 +1,5 @@
 name: Test - Python CI
-on: push
+on: [push, pull_request]
 jobs:
   call-python-ci:
     uses: ./.github/workflows/python-ci.yml
