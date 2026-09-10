@@ -92,9 +92,16 @@ jobs:
         run: |
           python3 - <<'PYEOF'
           import json, sys
-          with open('/tmp/review.json') as f:
-              data = json.load(f)
-          findings = data.get('structured_output', {}).get('findings', [])
+          try:
+              with open('/tmp/review.json') as f:
+                  data = json.load(f)
+          except Exception as e:
+              print(f"::error::Failed to parse review output — failing closed: {e}")
+              sys.exit(1)
+          if 'structured_output' not in data:
+              print("::error::Review output missing structured_output — failing closed (possible refusal or malformed response)")
+              sys.exit(1)
+          findings = data['structured_output'].get('findings', [])
           blocking = [x for x in findings if x.get('severity') in ('CRITICAL', 'HIGH')]
           for x in blocking:
               print(f"::error::{x['severity']}: {x['summary']}")
