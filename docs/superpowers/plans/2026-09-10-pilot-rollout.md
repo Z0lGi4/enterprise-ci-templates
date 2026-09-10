@@ -70,6 +70,8 @@ Expected: `lint`, `test`, `dependency-audit` pass (memory-medic already has real
 
 Once Step 4 confirms only `review-agent` fails (on the known, expected gap), protect `main` requiring the other four — not `review-agent`, since requiring a check that can never currently pass would permanently block every future PR:
 
+> **Stale as of the `fix/optional-oauth-token` fix:** `review-agent` no longer fails when the secret is missing — it now reports SUCCESS-with-a-warning instead (see that repo's README). The "can never currently pass" rationale below no longer holds; requiring `review-agent` today would just mean the gate always passes without reviewing anything, not that it blocks every PR.
+
 ```bash
 cat > /tmp/memory-medic-branch-protection.json << 'EOF'
 {

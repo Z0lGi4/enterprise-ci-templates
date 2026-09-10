@@ -5,11 +5,4 @@ jobs:
     uses: ./.github/workflows/node-ci.yml
     with:
       working-directory: test-fixtures/node-sample
-    secrets:
-      # No CLAUDE_CODE_OAUTH_TOKEN repo secret exists yet (confirmed via `gh
-      # secret list` — empty, same gap Task 2 hit). `secrets: inherit` fails
-      # workflow_call's `required: true` validation with nothing to inherit,
-      # even though review-agent (the only job that reads this secret) is
-      # skipped on push. Placeholder is safe: never read outside a
-      # pull_request event.
-      CLAUDE_CODE_OAUTH_TOKEN: placeholder-unused-outside-pull-request
+    secrets: inherit

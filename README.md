@@ -23,6 +23,13 @@ Required repo secret: **`CLAUDE_CODE_OAUTH_TOKEN`** — generate with `claude se
 locally (requires a Claude subscription), then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
 This is *not* `ANTHROPIC_API_KEY` — that name is not used anywhere in this repo.
 
+This secret is optional at the `workflow_call` level, by design: `lint`, `test`,
+`secret-scan` and `dependency-audit` run regardless. **Without it, `review-agent`
+reports success without actually reviewing anything** — a visible `::warning::`
+fires (and is written to the run's step summary) on every PR, but the check
+still passes. Branch protection cannot tell that apart from a clean review.
+Set the secret before treating `ci / review-agent` as a meaningful gate.
+
 ## Branch protection
 
 Required status checks are the five job names, not a single `ci` check:
