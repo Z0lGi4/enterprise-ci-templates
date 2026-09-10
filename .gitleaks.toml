@@ -1,0 +1,6 @@
+title = "Gitleaks config"
+description = "Gitleaks configuration for scanning all commits"
+
+[extend]
+# Scan all commits and tags, not just new ones
+useDefault = true
