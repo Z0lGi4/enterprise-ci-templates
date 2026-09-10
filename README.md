@@ -82,6 +82,13 @@ jobs:
   backstop, not the primary control.
 - Third-party actions are pinned to commit SHAs, not mutable tags — update
   deliberately, not automatically.
+  The one intentional exception is this repo's own
+  `Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@main`, which
+  adopters reference by branch so a fix here reaches every repo without ten
+  follow-up PRs — the same reason the reusable workflows are called `@main`.
+  Automated supply-chain scanners flag it as "third-party action unpinned";
+  it is first-party, same owner, same trust boundary as the workflow calling
+  it. Pin it to a SHA only if this repo ever stops being ours.
 - If a rollout target repo is owned by a GitHub Organization (not a personal
   account), gitleaks-action v2 requires a `GITLEAKS_LICENSE` secret (free
   tier covers personal accounts and public repos only).
