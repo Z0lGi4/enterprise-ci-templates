@@ -1,0 +1,10 @@
+name: 'Secret Scan'
+description: 'Fail the job if gitleaks finds a committed secret'
+runs:
+  using: 'composite'
+  steps:
+    - name: Run gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        GITLEAKS_ENABLE_COMMENTS: 'false'
