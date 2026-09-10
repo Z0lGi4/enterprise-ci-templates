@@ -10,7 +10,7 @@ on:
         default: '.'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
-        required: true
+        required: false
 
 jobs:
   lint:
@@ -79,13 +79,27 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { fetch-depth: 0 }
+      - name: Check for CLAUDE_CODE_OAUTH_TOKEN
+        id: token_check
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN is not configured on this repo — the automated review-agent gate is NOT active. Run 'claude setup-token' locally and add the result as a repo secret to enable it. This PR is NOT being reviewed by the LLM gate."
+            echo "token_present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "token_present=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install Claude Code
+        if: steps.token_check.outputs.token_present == 'true'
         run: npm install -g @anthropic-ai/claude-code@2.1.263
       - name: Get PR diff
+        if: steps.token_check.outputs.token_present == 'true'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: git diff "origin/$BASE_REF"...HEAD > /tmp/pr.diff
       - name: Structured review
+        if: steps.token_check.outputs.token_present == 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
@@ -94,6 +108,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"findings":{"type":"array","items":{"type":"object","properties":{"severity":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","LOW"]},"summary":{"type":"string"}},"required":["severity","summary"]}}},"required":["findings"]}' \
             --max-turns 5 < /tmp/pr.diff > /tmp/review.json
       - name: Fail on CRITICAL/HIGH findings
+        if: steps.token_check.outputs.token_present == 'true'
         run: |
           python3 - <<'PYEOF'
           import json, sys
