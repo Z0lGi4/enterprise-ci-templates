@@ -1,0 +1,66 @@
+name: Docs Sync (reusable)
+on:
+  workflow_call:
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: '22' }
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.263
+      - name: Regenerate technical overview
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          mkdir -p docs
+          claude -p "Write or overwrite docs/TECHNICAL_OVERVIEW.md to accurately describe the current state of this codebase: architecture, tech stack, key components, and API surface. Base it only on what you actually find in the repository." \
+            --allowedTools "Read,Write,Glob,Grep" --max-turns 15
+      - name: Regenerate slide deck HTML
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          claude -p "Write or overwrite docs/deck.html as a concise, self-contained HTML slide deck (inline CSS, no external assets, no network requests) covering: what this product is, its architecture, and current status. Base it only on what you actually find in the repository." \
+            --allowedTools "Read,Write,Glob,Grep" --max-turns 15
+      - name: Render deck.html to deck.pdf
+        run: |
+          npx --yes playwright install --with-deps chromium
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            await page.goto('file://' + process.cwd() + '/docs/deck.html');
+            await page.pdf({ path: 'docs/deck.pdf', format: 'A4', printBackground: true });
+            await browser.close();
+          })();
+          "
+      - name: Open automated-docs PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "docs-sync-bot"
+          git config user.email "docs-sync-bot@users.noreply.github.com"
+          if git diff --quiet -- docs/TECHNICAL_OVERVIEW.md docs/deck.html docs/deck.pdf 2>/dev/null; then
+            echo "No doc changes, skipping PR"
+            exit 0
+          fi
+          BRANCH="automated-docs-${{ github.run_id }}"
+          git checkout -b "$BRANCH"
+          git add docs/TECHNICAL_OVERVIEW.md docs/deck.html docs/deck.pdf
+          git commit -m "docs: auto-regenerate technical overview and slide deck"
+          git push origin "$BRANCH"
+          gh pr create --title "docs: auto-regenerate technical overview and slide deck" \
+            --body "Automated by docs-sync.yml." \
+            --label "automated-docs" \
+            --base main --head "$BRANCH"
+          gh pr merge "$BRANCH" --auto --squash
