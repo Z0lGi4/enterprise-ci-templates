@@ -1,5 +1,10 @@
 name: Test - Docs Sync
-on: push
+on:
+  push:
+    paths:
+      - '.github/workflows/docs-sync.yml'
+      - '.github/workflows/test-docs-sync.yml'
+  workflow_dispatch:
 jobs:
   call-docs-sync:
     uses: ./.github/workflows/docs-sync.yml
