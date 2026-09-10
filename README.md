@@ -8,6 +8,22 @@ for how this was built.
 
 ## Using these workflows in your repo
 
+**Prerequisite — set this before adding the caller workflow, or the whole
+call fails with zero jobs created:**
+
+```bash
+gh api -X PUT repos/<owner>/<repo>/actions/permissions/workflow \
+  -f default_workflow_permissions=write -F can_approve_pull_request_reviews=false
+```
+
+The `secret-scan` job requests `pull-requests: read` (needed for
+`gitleaks-action` to scan PR commits) — GitHub refuses to start the *entire*
+`workflow_call`, not just that job, if the repo's default is still `read`.
+Confirmed on two separate repos (`enterprise-ci-templates` itself, then
+`memory-medic`) — same `startup_failure`/zero-jobs symptom both times, same
+fix both times. Every repo adopting `python-ci.yml`/`node-ci.yml` needs this,
+regardless of whether it also adopts `docs-sync.yml`.
+
 ```yaml
 # .github/workflows/ci.yml
 name: CI
