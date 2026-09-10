@@ -1,0 +1,94 @@
+name: Python CI (reusable)
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: '3.12'
+      working-directory:
+        type: string
+        default: '.'
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - run: pip install ruff
+      - run: ruff check .
+        working-directory: ${{ inputs.working-directory }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install project (editable, with dev extras)
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          pip install -e ".[dev]" 2>/dev/null || pip install -e . pytest pytest-cov
+          [ -f requirements.txt ] && pip install -r requirements.txt || true
+      - name: Run tests with 80% coverage gate
+        working-directory: ${{ inputs.working-directory }}
+        run: pytest --cov=. --cov-fail-under=80
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@main
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - run: pip install pip-audit
+      - name: Audit dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [ -f requirements.txt ]; then pip-audit -r requirements.txt; else pip-audit --local || true; fi
+
+  review-agent:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Get PR diff
+        run: git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+      - name: Structured review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "Review this diff for correctness, security, and quality issues. List every real issue you find." \
+            --output-format json \
+            --json-schema '{"type":"object","properties":{"findings":{"type":"array","items":{"type":"object","properties":{"severity":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","LOW"]},"summary":{"type":"string"}},"required":["severity","summary"]}}},"required":["findings"]}' \
+            --max-turns 5 < /tmp/pr.diff > /tmp/review.json
+      - name: Fail on CRITICAL/HIGH findings
+        run: |
+          python3 - <<'PYEOF'
+          import json, sys
+          with open('/tmp/review.json') as f:
+              data = json.load(f)
+          findings = data.get('structured_output', {}).get('findings', [])
+          blocking = [x for x in findings if x.get('severity') in ('CRITICAL', 'HIGH')]
+          for x in blocking:
+              print(f"::error::{x['severity']}: {x['summary']}")
+          if blocking:
+              sys.exit(1)
+          print(f"Review passed ({len(findings)} findings, none blocking)")
+          PYEOF
