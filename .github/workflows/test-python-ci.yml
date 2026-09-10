@@ -1,0 +1,8 @@
+name: Test - Python CI
+on: push
+jobs:
+  call-python-ci:
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      working-directory: test-fixtures/python-sample
+    secrets: inherit
