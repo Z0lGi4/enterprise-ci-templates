@@ -49,6 +49,14 @@ jobs:
 
 ## Notes
 
+- The `docs-sync.yml` secret-scan step runs gitleaks' default ruleset, which
+  reliably catches `KEYWORD=value`-shaped secrets but does not reliably catch
+  a bare credential-looking string embedded in narrative prose (verified:
+  gitleaks 8.30.1's defaults did not flag a bare `AKIA...`-shaped string
+  sitting in plain sentence text) — so the primary defense against a leaked
+  secret in generated docs remains the `claude -p` prompt's own instruction
+  to avoid secret-shaped content, not this scan. This scan is a real
+  backstop, not the primary control.
 - Third-party actions are pinned to commit SHAs, not mutable tags — update
   deliberately, not automatically.
 - If a rollout target repo is owned by a GitHub Organization (not a personal
