@@ -63,10 +63,13 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
       - run: pip install pip-audit
+      - name: Install project
+        working-directory: ${{ inputs.working-directory }}
+        run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
       - name: Audit dependencies
         working-directory: ${{ inputs.working-directory }}
         run: |
-          if [ -f requirements.txt ]; then pip-audit -r requirements.txt; else pip-audit --local || true; fi
+          if [ -f requirements.txt ]; then pip-audit -r requirements.txt; else pip-audit; fi
 
   review-agent:
     runs-on: ubuntu-latest
@@ -79,7 +82,9 @@ jobs:
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code@2.1.263
       - name: Get PR diff
-        run: git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff "origin/$BASE_REF"...HEAD > /tmp/pr.diff
       - name: Structured review
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
