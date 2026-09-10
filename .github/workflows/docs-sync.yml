@@ -23,13 +23,13 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           mkdir -p docs
-          claude -p "Write or overwrite docs/TECHNICAL_OVERVIEW.md to accurately describe the current state of this codebase: architecture, tech stack, key components, and API surface. Base it only on what you actually find in the repository." \
+          claude -p "Write or overwrite docs/TECHNICAL_OVERVIEW.md to accurately describe the current state of this codebase: architecture, tech stack, key components, and API surface. Base it only on what you actually find in the repository. Do not read, quote, or reference the contents of any file matching .env*, *.pem, *.key, or anything that looks like it contains a credential, API key, or secret; if such a file is relevant to describe, name only its existence and purpose, never its contents." \
             --allowedTools "Read,Write,Glob,Grep" --max-turns 15
       - name: Regenerate slide deck HTML
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          claude -p "Write or overwrite docs/deck.html as a concise, self-contained HTML slide deck (inline CSS, no external assets, no network requests) covering: what this product is, its architecture, and current status. Base it only on what you actually find in the repository." \
+          claude -p "Write or overwrite docs/deck.html as a concise, self-contained HTML slide deck (inline CSS, no external assets, no network requests) covering: what this product is, its architecture, and current status. Base it only on what you actually find in the repository. Do not read, quote, or reference the contents of any file matching .env*, *.pem, *.key, or anything that looks like it contains a credential, API key, or secret; if such a file is relevant to describe, name only its existence and purpose, never its contents." \
             --allowedTools "Read,Write,Glob,Grep" --max-turns 15
       - name: Render deck.html to deck.pdf
         run: |
@@ -38,7 +38,8 @@ jobs:
           const { chromium } = require('playwright');
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage();
+            const context = await browser.newContext({ javaScriptEnabled: false });
+            const page = await context.newPage();
             await page.goto('file://' + process.cwd() + '/docs/deck.html');
             await page.pdf({ path: 'docs/deck.pdf', format: 'A4', printBackground: true });
             await browser.close();
