@@ -43,10 +43,6 @@ checkout, needs no token and no elevated scope, and every job in these
 workflows asks only for `contents: read`. If you raised a repo to `write` for a
 previous version of this framework, you can put it back.
 
-`docs-sync.yml` is the one exception: it opens and auto-merges a PR, so it
-genuinely needs `pull-requests: write` and the `write` ceiling. Adopt it only
-where you want that.
-
 Required repo secret: **`CLAUDE_CODE_OAUTH_TOKEN`** — generate with `claude setup-token`
 locally (requires a Claude subscription), then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
 This is *not* `ANTHROPIC_API_KEY` — that name is not used anywhere in this repo.
@@ -65,33 +61,12 @@ Required status checks are the five job names, not a single `ci` check:
 `ci / review-agent` (adjust the `ci /` prefix to match whatever you name
 the calling job in your own `.github/workflows/ci.yml`).
 
-## Docs auto-sync
-
-To adopt `docs-sync.yml`, add a caller that path-ignores its own output to
-avoid a self-triggering loop:
-```yaml
-# .github/workflows/docs-trigger.yml
-name: Docs Sync
-on:
-  push:
-    branches: [main]
-    paths-ignore: ['docs/**']
-jobs:
-  docs-sync:
-    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/docs-sync.yml@main
-    secrets: inherit
-```
-
 ## Notes
 
-- The `docs-sync.yml` secret-scan step runs gitleaks' default ruleset, which
-  reliably catches `KEYWORD=value`-shaped secrets but does not reliably catch
-  a bare credential-looking string embedded in narrative prose (verified:
-  gitleaks 8.30.1's defaults did not flag a bare `AKIA...`-shaped string
-  sitting in plain sentence text) — so the primary defense against a leaked
-  secret in generated docs remains the `claude -p` prompt's own instruction
-  to avoid secret-shaped content, not this scan. This scan is a real
-  backstop, not the primary control.
+- `docs-sync.yml` (LLM-regenerated docs, auto-merged) was removed on
+  2026-09-11. It was the only workflow needing `pull-requests: write` and the
+  repo-wide `write` ceiling; nothing adopted it, and docs stay a human's job.
+
 - Third-party actions are pinned to commit SHAs, not mutable tags — update
   deliberately, not automatically.
   The one intentional exception is this repo's own
