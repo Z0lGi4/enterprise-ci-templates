@@ -103,14 +103,20 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ inputs.python-version }}
-      - run: pip install pip-audit
+      # The hosted runner's own pip/setuptools are in the environment a bare
+      # `pip-audit` audits. Upgrading them first keeps a toolchain advisory
+      # (setuptools PYSEC-2026-3447 failed branded-video-factory this way) out
+      # of a result that is meant to be about the project's dependencies.
+      - run: python -m pip install --upgrade pip setuptools && pip install pip-audit
       - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@main
         with:
           working-directory: ${{ inputs.working-directory }}
+      # --skip-editable: the project itself is installed editable so its
+      # dependencies resolve; it is not on PyPI and cannot be audited.
       - name: Audit dependencies
         working-directory: ${{ inputs.working-directory }}
         run: |
-          if [ -f requirements.txt ]; then pip-audit -r requirements.txt; else pip-audit; fi
+          if [ -f requirements.txt ]; then pip-audit -r requirements.txt; else pip-audit --skip-editable; fi
 
   review-agent:
     runs-on: ubuntu-latest
