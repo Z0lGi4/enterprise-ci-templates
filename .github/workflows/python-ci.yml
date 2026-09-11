@@ -35,27 +35,10 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ inputs.python-version }}
-      - name: Install project (editable, with dev extras)
-        working-directory: ${{ inputs.working-directory }}
-        run: |
-          # Three real repo shapes, not one. A pyproject.toml that declares only
-          # [tool.*] (pytest/ruff config, no [project] or [build-system]) is NOT
-          # pip-installable — `pip install -e .` fails on it — and several repos
-          # here ship requirements.txt with no pyproject at all. The old
-          # `pip install -e ".[dev]" || pip install -e . pytest pytest-cov`
-          # failed the whole step on both, because the fallback failed too, and
-          # the requirements.txt line never ran.
-          if [ -f pyproject.toml ] && grep -Eq '^\[(project|build-system)\]' pyproject.toml; then
-            pip install -e ".[dev]" || pip install -e .
-          elif [ -f setup.py ]; then
-            pip install -e .
-          fi
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-          # Installed unconditionally: the coverage gate below needs them, and a
-          # project's own dev extra may or may not include them.
-          pip install pytest pytest-cov
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@main
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          test-deps: 'true'
       - name: Run tests with 80% coverage gate
         working-directory: ${{ inputs.working-directory }}
         run: pytest --cov=. --cov-fail-under=80
@@ -83,9 +66,9 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
       - run: pip install pip-audit
-      - name: Install project
-        working-directory: ${{ inputs.working-directory }}
-        run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@main
+        with:
+          working-directory: ${{ inputs.working-directory }}
       - name: Audit dependencies
         working-directory: ${{ inputs.working-directory }}
         run: |
