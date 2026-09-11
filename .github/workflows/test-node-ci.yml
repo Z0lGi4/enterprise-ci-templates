@@ -5,4 +5,9 @@ jobs:
     uses: ./.github/workflows/node-ci.yml
     with:
       working-directory: test-fixtures/node-sample
-    secrets: inherit
+    secrets:
+      # NOT `secrets: inherit` — that hands EVERY repo secret (AWS keys, DB
+      # passwords, Stripe keys) to a workflow in another repo, pinned to a
+      # mutable @main ref. This framework needs exactly one secret; pass only
+      # that one.
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

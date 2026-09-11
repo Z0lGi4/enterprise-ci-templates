@@ -1,13 +1,63 @@
 name: 'Secret Scan'
 description: 'Fail the job if gitleaks finds a committed secret'
+inputs:
+  gitleaks-version:
+    description: 'Pinned gitleaks release to download'
+    required: false
+    default: '8.30.1'
 runs:
   using: 'composite'
   steps:
-    - name: Run gitleaks
-      uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+    # Runs the gitleaks binary directly rather than gitleaks-action.
+    #
+    # gitleaks-action calls GET /pulls/{n}/commits on pull_request events, which
+    # needs `pull-requests: read`. Because default_workflow_permissions is a
+    # repo-wide CEILING, every adopting repo then had to be raised from `read`
+    # to `write` before its workflow_call would start at all — a permanent,
+    # repo-wide privilege increase for every workflow in that repo, bought to
+    # satisfy one third-party action's API call. Reading the same commit range
+    # out of the local checkout needs no token and no elevated scope.
+    #
+    # Requires the caller's checkout to use fetch-depth: 0.
+    - shell: bash
       env:
-        # Requires caller job to have permissions: { contents: read, pull-requests: read }
-        # (pull-requests: read is needed only for pull_request-triggered runs,
-        # where gitleaks-action lists PR commits via the GitHub API)
-        GITHUB_TOKEN: ${{ github.token }}
-        GITLEAKS_ENABLE_COMMENTS: 'false'
+        GITLEAKS_VERSION: ${{ inputs.gitleaks-version }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        PUSH_BEFORE: ${{ github.event.before }}
+        PUSH_AFTER: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+        V="$GITLEAKS_VERSION"
+        cd "$RUNNER_TEMP"
+        # -O keeps each file's original release name so it matches the entries
+        # in the checksums file; renaming the tarball on download would make
+        # --ignore-missing find nothing to check and skip verification
+        # entirely — silently, not just on this one release.
+        curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_linux_x64.tar.gz"
+        curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_checksums.txt"
+        sha256sum --ignore-missing -c "gitleaks_${V}_checksums.txt"
+        tar -xzf "gitleaks_${V}_linux_x64.tar.gz" gitleaks
+        cd "$GITHUB_WORKSPACE"
+
+        ZERO=0000000000000000000000000000000000000000
+        RANGE=""
+        if [ "$EVENT_NAME" = "pull_request" ] && [ -n "${PR_BASE:-}" ]; then
+          RANGE="${PR_BASE}..${PR_HEAD}"
+        elif [ "$EVENT_NAME" = "push" ] && [ -n "${PUSH_BEFORE:-}" ] && [ "$PUSH_BEFORE" != "$ZERO" ] \
+             && git rev-parse -q --verify "${PUSH_BEFORE}^{commit}" >/dev/null; then
+          RANGE="${PUSH_BEFORE}..${PUSH_AFTER}"
+        fi
+
+        if [ -n "$RANGE" ]; then
+          echo "Scanning commit range: $RANGE"
+          "$RUNNER_TEMP/gitleaks" detect --no-banner -v --redact \
+            --log-opts="--no-merges --first-parent $RANGE"
+        else
+          # No usable range: a brand-new branch, a tag, a schedule, a manual
+          # dispatch. Scan ALL history rather than nothing — "no range" must
+          # not become the one place a secret can land unscanned.
+          echo "No incremental range for event '$EVENT_NAME' — scanning full history"
+          "$RUNNER_TEMP/gitleaks" detect --no-banner -v --redact
+        fi

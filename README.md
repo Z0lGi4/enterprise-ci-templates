@@ -8,22 +8,6 @@ for how this was built.
 
 ## Using these workflows in your repo
 
-**Prerequisite — set this before adding the caller workflow, or the whole
-call fails with zero jobs created:**
-
-```bash
-gh api -X PUT repos/<owner>/<repo>/actions/permissions/workflow \
-  -f default_workflow_permissions=write -F can_approve_pull_request_reviews=false
-```
-
-The `secret-scan` job requests `pull-requests: read` (needed for
-`gitleaks-action` to scan PR commits) — GitHub refuses to start the *entire*
-`workflow_call`, not just that job, if the repo's default is still `read`.
-Confirmed on two separate repos (`enterprise-ci-templates` itself, then
-`memory-medic`) — same `startup_failure`/zero-jobs symptom both times, same
-fix both times. Every repo adopting `python-ci.yml`/`node-ci.yml` needs this,
-regardless of whether it also adopts `docs-sync.yml`.
-
 ```yaml
 # .github/workflows/ci.yml
 name: CI
@@ -32,8 +16,30 @@ jobs:
   ci:
     uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@main
     # or node-ci.yml for TypeScript/JavaScript repos
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
+
+**Pass that one secret explicitly — never `secrets: inherit`.** `inherit` hands
+*every* secret the repo holds (AWS deploy credentials, database passwords,
+Stripe keys, encryption keys) to a workflow living in a different repository,
+referenced by a mutable `@main`. This framework needs exactly one secret, on
+one job. There is no upside to giving it the rest.
+
+**No repo-settings change is needed.** Earlier revisions required raising
+`default_workflow_permissions` from `read` to `write` on every adopting repo,
+because `secret-scan` wrapped `gitleaks-action`, which calls
+`GET /pulls/{n}/commits` and therefore needed `pull-requests: read` — and that
+setting is a repo-wide *ceiling*, so GitHub refused to start the entire
+`workflow_call` while it stayed `read` (a `startup_failure` with zero jobs;
+seen on three repos). The scan now reads the same commit range out of the local
+checkout, needs no token and no elevated scope, and every job in these
+workflows asks only for `contents: read`. If you raised a repo to `write` for a
+previous version of this framework, you can put it back.
+
+`docs-sync.yml` is the one exception: it opens and auto-merges a PR, so it
+genuinely needs `pull-requests: write` and the `write` ceiling. Adopt it only
+where you want that.
 
 Required repo secret: **`CLAUDE_CODE_OAUTH_TOKEN`** — generate with `claude setup-token`
 locally (requires a Claude subscription), then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.

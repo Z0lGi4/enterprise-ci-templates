@@ -46,11 +46,9 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     permissions:
+      # contents: read is all it needs — the scan reads the commit range out of
+      # the local checkout instead of asking the API for it.
       contents: read
-      # gitleaks-action calls GET /pulls/{n}/commits to scan PR commits on a
-      # pull_request event; GitHub 403s that call without this (verified via
-      # the x-accepted-github-permissions response header: pull_requests=read).
-      pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { fetch-depth: 0 }
