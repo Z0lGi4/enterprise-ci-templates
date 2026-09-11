@@ -1,0 +1,4 @@
+# gitleaks fingerprints (commit:file:rule:line). Each entry names why it is not a leak.
+# Old AKIA-prefixed canary used by an earlier version of test-secret-scan.yml; the
+# file is gone from the tree, the value was never a real credential.
+75765abaff06e974b0ff25a23f949aa5129d974d:test-fixtures/leaky-file.txt:generic-api-key:2

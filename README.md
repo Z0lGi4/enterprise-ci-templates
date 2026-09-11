@@ -11,7 +11,13 @@ for how this was built.
 ```yaml
 # .github/workflows/ci.yml
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]   # or master
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   ci:
     uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@main
