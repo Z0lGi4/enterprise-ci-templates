@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 .coverage
 node_modules/
+pre-test-ran.txt

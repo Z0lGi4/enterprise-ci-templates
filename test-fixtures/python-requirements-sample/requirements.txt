@@ -1,3 +1,6 @@
 # A real, tiny, pure-Python package that is NOT a pytest dependency, so the
 # test importing it proves this file was actually installed.
 tomli-w==1.0.0
+# Used by tests/test_ci_environment.py to prove the CI template's Postgres
+# service is actually reachable, not merely declared.
+psycopg[binary]==3.2.3

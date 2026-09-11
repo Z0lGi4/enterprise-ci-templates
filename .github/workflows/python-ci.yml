@@ -8,6 +8,14 @@ on:
       working-directory:
         type: string
         default: '.'
+      pre-test-command:
+        description: |
+          Shell run in the working directory immediately before pytest, for
+          repo-specific setup the template cannot know about — migrations,
+          creating a least-privileged app role, seeding fixtures. DATABASE_URL
+          is already exported when it runs.
+        type: string
+        default: ''
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: false
@@ -30,6 +38,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Postgres runs for every Python repo, not behind a flag. `services:` takes
+    # no `if:`, and the alternatives are worse: a conditional image needs a
+    # valid fallback image, and a second job would change the status-check name
+    # (`ci / test-with-postgres`), which branch protection pins by string.
+    # A container the repo never connects to costs a cached image pull and
+    # changes nothing about its tests.
+    #
+    # This is not a nicety. seoforge-ai has a session-scoped autouse fixture
+    # that skips the WHOLE session when no Postgres answers, so without this
+    # its run was 4068 skipped / 0 passed and 27% coverage — a gate that
+    # reports a number while executing nothing.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -39,8 +71,16 @@ jobs:
         with:
           working-directory: ${{ inputs.working-directory }}
           test-deps: 'true'
+      - name: Repo-specific pre-test setup
+        if: inputs.pre-test-command != ''
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: ${{ inputs.pre-test-command }}
       - name: Run tests with 80% coverage gate
         working-directory: ${{ inputs.working-directory }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: pytest --cov=. --cov-fail-under=80
 
   secret-scan:

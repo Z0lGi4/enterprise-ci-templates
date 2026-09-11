@@ -9,6 +9,7 @@ jobs:
     uses: ./.github/workflows/python-ci.yml
     with:
       working-directory: test-fixtures/python-requirements-sample
+      pre-test-command: echo ok > pre-test-ran.txt
     secrets:
       # NOT `secrets: inherit` — that hands EVERY repo secret (AWS keys, DB
       # passwords, Stripe keys) to a workflow in another repo, pinned to a
