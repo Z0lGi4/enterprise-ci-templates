@@ -110,31 +110,16 @@ ai-company-orchestrator, branded-video-factory, social-mind, vibetest,
 churnsignal, seoforge-ai, faceless-video-factory) follow in any order once
 both pilots are green, since the bar is identical for all of them.
 
-## 5. Auto-updating technical doc + slide deck
+## 5. Auto-updating technical doc + slide deck — DROPPED (2026-09-11)
 
-Separate workflow, `docs-sync.yml`, triggered on push to `main` (i.e.
-**after** a PR merges — it writes back, it doesn't gate).
-
-**Steps:**
-1. `claude -p` regenerates `docs/TECHNICAL_OVERVIEW.md` (architecture,
-   stack, components, API surface — reflecting current `main`, not a
-   snapshot from when someone last remembered to update it) and
-   `docs/deck.html` (a concise product/architecture slide deck).
-2. `deck.html` → `deck.pdf` via **Playwright's headless Chromium**
-   (already available via the Playwright MCP/plugin; chosen over the
-   desktop-Chrome-path pattern in the existing Hermes
-   `multi-project-build` skill because it's portable to a Linux CI
-   runner, which a local Chrome install path is not).
-3. Opens a PR labeled `automated-docs` with the regenerated files.
-
-**Deliberate exception to the review gate:** a docs-only PR that's
-regenerated from already-reviewed code doesn't re-run the review-agent
-gate (stage 5) — only lint/build need to pass, then it auto-merges. This
-was an explicit trade-off, not an oversight: re-reviewing generated
-documentation of already-approved code adds cost with no signal.
-
-**Loop prevention:** `docs-sync.yml`'s trigger path-filters out `docs/**`,
-so the auto-merge of its own output doesn't re-trigger itself.
+Designed as `docs-sync.yml`: on push to `main`, `claude -p` regenerated a
+technical overview and slide deck and auto-merged them, skipping the
+review gate. Removed before any repo adopted it. Reasons: it was the only
+workflow needing `pull-requests: write` and therefore the repo-wide
+`write` permissions ceiling (everything else runs on `contents: read`);
+auto-merging LLM output onto `main` bypasses the gate this framework
+exists to enforce; and nobody asked for the output. Documentation is a
+human's job. Revisit only with a design that opens a normal, gated PR.
 
 ## 6. Explicitly out of scope (not decided here, don't assume)
 
