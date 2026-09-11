@@ -1,0 +1,8 @@
+# Deliberately config-only: no [project], no [build-system]. This is the exact
+# shape of seoforge-ai's pyproject.toml, and `pip install -e .` FAILS on it.
+# Keep it that way — that is what this fixture exists to reproduce.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120

@@ -1,0 +1,3 @@
+# A real, tiny, pure-Python package that is NOT a pytest dependency, so the
+# test importing it proves this file was actually installed.
+tomli-w==1.0.0

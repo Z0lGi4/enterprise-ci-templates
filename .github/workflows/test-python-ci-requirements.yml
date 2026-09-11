@@ -1,0 +1,12 @@
+# Smoke test for the requirements.txt-only / config-only-pyproject repo shape.
+# The sibling test-python-ci.yml covers the packaged ([project] + [build-system])
+# shape; this one covers the shape that used to fail the install step outright.
+# Keep BOTH — each proves a different branch of that step.
+name: Test - Python CI (requirements.txt shape)
+on: [push, pull_request]
+jobs:
+  call-python-ci:
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      working-directory: test-fixtures/python-requirements-sample
+    secrets: inherit
