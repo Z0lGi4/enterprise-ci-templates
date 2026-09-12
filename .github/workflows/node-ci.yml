@@ -65,6 +65,11 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           test -f coverage/lcov.info || { echo '::error::coverage/lcov.info missing - the test runner must emit lcov'; exit 1; }
+          # vitest writes SF: paths relative to the package while git diff paths are
+          # repo-root-relative, so in a subdirectory nothing matched and the gate
+          # reported "no lines" (caught by review-agent on the PR that added it).
+          # Absolute paths are what diff-cover resolves reliably.
+          sed -i "s#^SF:\([^/]\)#SF:$PWD/\1#" coverage/lcov.info
           pipx install diff-cover
           diff-cover coverage/lcov.info --compare-branch="origin/$BASE_REF" --fail-under=80
 
