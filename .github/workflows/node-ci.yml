@@ -138,6 +138,9 @@ jobs:
               # an empty log and nobody can tell a broken token from a real finding.
               echo '::error::claude -p exited non-zero; its output follows'
               cat /tmp/review.json
+              # Shape of the secret, never its value: a paste that lost or gained
+              # characters shows up as a length that differs from the local one.
+              echo "token length: ${#CLAUDE_CODE_OAUTH_TOKEN}; prefix: ${CLAUDE_CODE_OAUTH_TOKEN:0:12}; trailing whitespace: $([ "${CLAUDE_CODE_OAUTH_TOKEN}" != "${CLAUDE_CODE_OAUTH_TOKEN%[[:space:]]}" ] && echo yes || echo no)"
               exit 1
             }
       - name: Fail on CRITICAL/HIGH findings
