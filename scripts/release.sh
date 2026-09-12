@@ -14,7 +14,7 @@
 #
 # Adopters are listed in scripts/adopters.txt, one `owner/repo` per line.
 # One adopter failing does not stop the others; failures are listed at the
-# end and the script exits non-zero.
+# end and the script exits non-zero. Needs only git, gh and python3.
 set -euo pipefail
 
 git fetch --quiet origin main
@@ -64,7 +64,8 @@ bump_one() {
   fi
   rm -f "$err"
   fsha="$(gh api "repos/$repo/contents/.github/workflows/ci.yml?ref=$br" -q .sha)" || return 1
-  gh api -X PUT "repos/$repo/contents/.github/workflows/ci.yml" -f message="ci: framework ${SHORT}" -f branch="$br" -f sha="$fsha" -f content="$(printf '%s' "$new" | base64 -w0)" >/dev/null || return 1
+  # `$(...)` stripped the file's final newline; put it back.
+  gh api -X PUT "repos/$repo/contents/.github/workflows/ci.yml" -f message="ci: framework ${SHORT}" -f branch="$br" -f sha="$fsha" -f content="$(printf '%s\n' "$new" | base64 -w0)" >/dev/null || return 1
   url="$(gh pr list -R "$repo" --head "$br" --state open --json url -q '.[0].url')" || return 1
   if [ -z "$url" ]; then
     url="$(gh pr create -R "$repo" -B "$base" -H "$br" -t "ci: framework ${SHORT}"       -b "Pins the framework at enterprise-ci-templates@${SHA} (v1). Changes: https://github.com/Z0lGi4/enterprise-ci-templates/commits/main")" || return 1
