@@ -6,10 +6,14 @@ name: Review Agent (reusable)
 #
 # Caller:
 #   name: review
-#   on: pull_request
+#   on:
+#     pull_request:
+#       # ready_for_review is not a default type; without it a draft marked
+#       # ready never gets its review until the next push.
+#       types: [opened, synchronize, reopened, ready_for_review]
 #   jobs:
 #     review-agent:
-#       uses: Z0lGi4/enterprise-ci-templates/.github/workflows/review-agent.yml@v1
+#       uses: Z0lGi4/enterprise-ci-templates/.github/workflows/review-agent.yml@<full commit sha> # v1
 #       secrets:
 #         CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 on:
@@ -21,14 +25,24 @@ on:
 jobs:
   review-agent:
     runs-on: ubuntu-latest
-    # Fork PRs never see the OAuth secret; same-repo PRs only.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # Same-repo, non-draft PRs only: fork PRs never see the OAuth secret, and a
+    # draft is not ready for review — each run is real plan usage (a session
+    # limit was hit after a day of reviewing every push). Mark ready to review.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { fetch-depth: 0 }
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/review-agent@v1
+      # This repo, at the exact commit of the workflow that is running — so a
+      # workflow pinned by SHA never pulls a floating action. Nothing here is
+      # secret; the repo is public.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: Z0lGi4/enterprise-ci-templates
+          ref: ${{ github.job_workflow_sha }}
+          path: .framework
+      - uses: ./.framework/.github/actions/review-agent
         with:
           oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base-ref: ${{ github.base_ref }}
