@@ -121,7 +121,7 @@ jobs:
           if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             # Fail closed. A gate that passes when it cannot run is not a gate;
             # branch protection cannot tell a skipped review from a clean one.
-            MSG="CLAUDE_CODE_OAUTH_TOKEN is not configured on this repo, so the review-agent gate cannot run. Run 'claude setup-token' locally, then 'bash ~/.claude/scripts/set-claude-ci-token.sh'."
+            MSG="CLAUDE_CODE_OAUTH_TOKEN is not configured on this repo, so the review-agent gate cannot run. Run 'claude setup-token' locally, then: printf '%s' "$TOKEN" | gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo $GITHUB_REPOSITORY"
             echo "::error::$MSG"
             echo "### :x: review-agent cannot run" >> "$GITHUB_STEP_SUMMARY"
             echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
