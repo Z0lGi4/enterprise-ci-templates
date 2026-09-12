@@ -13,9 +13,13 @@ for that adopter rather than silently leave the trigger untyped.
 import re
 import sys
 
-TYPES = "    types: [opened, synchronize, reopened, ready_for_review]\n"
-KEY = re.compile(r"^  pull_request:[ \t]*(#.*)?\n", re.M)
-NEXT_KEY = re.compile(r"^(?:  [^ \t\n#]|[^ \t\n#])", re.M)  # next 2-space or top-level key
+# Byte-faithful on every platform: no CRLF translation on the way in or out.
+sys.stdin.reconfigure(newline="")
+sys.stdout.reconfigure(newline="")
+
+TYPES = "    types: [opened, synchronize, reopened, ready_for_review]"
+KEY = re.compile(r"^  pull_request:[ \t]*(#.*)?(\r?\n)", re.M)
+NEXT_KEY = re.compile(r"^(?:  [^ \t\r\n#]|[^ \t\r\n#])", re.M)  # next 2-space or top-level key
 
 
 def fail(msg):
@@ -34,4 +38,5 @@ if "ready_for_review" in block:
     sys.exit(0)
 if re.search(r"^\s+types:", block, re.M):
     fail("pull_request already has a `types:` list without ready_for_review")
-sys.stdout.write(text[:m.end()] + TYPES + text[m.end():])
+eol = m.group(2)  # keep the file's own line ending
+sys.stdout.write(text[:m.end()] + TYPES + eol + text[m.end():])
