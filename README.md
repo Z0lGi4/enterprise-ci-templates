@@ -15,6 +15,7 @@ on:
   push:
     branches: [main]   # or master
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

@@ -85,6 +85,8 @@ on:
   push:
     branches: [$BRANCH]
   pull_request:
+    # ready_for_review is not a default type; the review gate skips drafts.
+    types: [opened, synchronize, reopened, ready_for_review]
 concurrency:
   group: ci-\${{ github.ref }}
   cancel-in-progress: true
@@ -212,6 +214,9 @@ out = {
     "allow_force_pushes": bool((cur.get("allow_force_pushes") or {}).get("enabled", False)),
     "allow_deletions": bool((cur.get("allow_deletions") or {}).get("enabled", False)),
     "required_conversation_resolution": bool((cur.get("required_conversation_resolution") or {}).get("enabled", False)),
+    "block_creations": bool((cur.get("block_creations") or {}).get("enabled", False)),
+    "lock_branch": bool((cur.get("lock_branch") or {}).get("enabled", False)),
+    "allow_fork_syncing": bool((cur.get("allow_fork_syncing") or {}).get("enabled", False)),
 }
 print(json.dumps(out))
 ')"

@@ -1,7 +1,9 @@
 name: Test - Review Agent
 # Exercises the standalone reusable review workflow on this repo's own PRs,
 # the way a selective adopter would call it.
-on: [pull_request]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 jobs:
   call-review-agent:
     uses: ./.github/workflows/review-agent.yml

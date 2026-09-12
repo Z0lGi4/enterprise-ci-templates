@@ -53,6 +53,15 @@ bump_one() {
   # `|` is the sed delimiter because the replacement contains `#`.
   new="$(printf '%s' "$cur" | sed -E "s|(Z0lGi4/enterprise-ci-templates/\.github/workflows/[a-z-]+\.yml)@[A-Za-z0-9._-]+( *# *v1)?|\1@${SHA} # v1|g")" || return 1
   [ "$new" != "$cur" ] || { echo "$repo: framework reference present but the pin pattern did not match; fix by hand" >&2; return 1; }
+  # The review gate skips drafts, and ready_for_review is not a default
+  # pull_request type: a bare `pull_request:` trigger gets the explicit list.
+  new="$(printf '%s' "$new" | python3 -c '
+import re, sys
+s = sys.stdin.read()
+s = re.sub(r"^(  pull_request:[ 	]*
+)(?!    types:)", r"    types: [opened, synchronize, reopened, ready_for_review]
+", s, count=1, flags=re.M)
+sys.stdout.write(s)')" || return 1
   br="ci/framework-${SHORT}"
   headsha="$(gh api "repos/$repo/git/ref/heads/$base" -q .object.sha)" || return 1
   err="$(mktemp)" || return 1

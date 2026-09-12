@@ -6,7 +6,11 @@ name: Review Agent (reusable)
 #
 # Caller:
 #   name: review
-#   on: pull_request
+#   on:
+#     pull_request:
+#       # ready_for_review is not a default type; without it a draft marked
+#       # ready never gets its review until the next push.
+#       types: [opened, synchronize, reopened, ready_for_review]
 #   jobs:
 #     review-agent:
 #       uses: Z0lGi4/enterprise-ci-templates/.github/workflows/review-agent.yml@<full commit sha> # v1
