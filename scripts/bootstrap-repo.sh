@@ -9,7 +9,8 @@
 #      required, enforce_admins on; existing review rules, push restrictions,
 #      linear-history and signature settings are read first and preserved
 #   3. A pull request ("ci/bootstrap-framework") adding
-#      .github/workflows/ci.yml (python-ci.yml@v1 or node-ci.yml@v1),
+#      .github/workflows/ci.yml calling python-ci.yml or node-ci.yml pinned
+#      by full commit SHA (the current release; scripts/release.sh bumps it),
 #      grouped weekly Dependabot, and ci.sh for Python repos. If that branch
 #      already exists from an earlier run it is reused, never overwritten.
 #
@@ -40,6 +41,8 @@ if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
   exit 1
 fi
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
+# The current release of this repo: what the v1 marker points at.
+RELEASE_SHA="$(git -C "$HERE" rev-parse v1^{commit})"
 
 # A repo that already has a non-framework ci.yml would never produce the
 # `ci / *` check names; requiring them would lock the branch. Stop first.
@@ -75,12 +78,21 @@ rsc = cur.get("required_status_checks") or {}
 contexts = list(dict.fromkeys((rsc.get("contexts") or []) + want))
 reviews = cur.get("required_pull_request_reviews")
 if reviews:
+    def logins(block):
+        return {"users": [u["login"] for u in (block or {}).get("users", [])],
+                "teams": [t["slug"] for t in (block or {}).get("teams", [])],
+                "apps": [a["slug"] for a in (block or {}).get("apps", [])]}
     reviews = {
         "dismiss_stale_reviews": reviews.get("dismiss_stale_reviews", False),
         "require_code_owner_reviews": reviews.get("require_code_owner_reviews", False),
         "required_approving_review_count": reviews.get("required_approving_review_count", 0),
         "require_last_push_approval": reviews.get("require_last_push_approval", False),
     }
+    src = cur["required_pull_request_reviews"]
+    if src.get("dismissal_restrictions"):
+        reviews["dismissal_restrictions"] = logins(src["dismissal_restrictions"])
+    if src.get("bypass_pull_request_allowances"):
+        reviews["bypass_pull_request_allowances"] = logins(src["bypass_pull_request_allowances"])
 restr = cur.get("restrictions")
 if restr:
     restr = {"users": [u["login"] for u in restr.get("users", [])],
@@ -120,9 +132,9 @@ if [ ! -f .github/workflows/ci.yml ]; then
   cat > .github/workflows/ci.yml <<EOF
 # Enterprise Production Framework — https://github.com/Z0lGi4/enterprise-ci-templates
 # lint, tests with the 80% coverage gate (whole project and changed lines),
-# secret scan, dependency audit, structured LLM review. Pinned to @v1, the
-# framework's own release tag (first-party: same owner, same trust boundary
-# as this file); the templates' release script moves it deliberately.
+# secret scan, dependency audit, structured LLM review. Pinned by full commit
+# SHA; the framework's release script opens a PR here to bump it, so a new
+# framework version never lands in this repo without a reviewed PR.
 name: CI
 on:
   push:
@@ -133,7 +145,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   ci:
-    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/${KIND}-ci.yml@v1
+    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/${KIND}-ci.yml@${RELEASE_SHA} # v1
 EOF
   if [ "$KIND" = python ]; then
     printf '    with:\n      python-version: "%s"\n' "$PYVER" >> .github/workflows/ci.yml
@@ -185,20 +197,20 @@ if [ "$KIND" = python ] && [ ! -f ci.sh ]; then
 fi
 
 if [ -z "$(git status --porcelain)" ]; then
-  echo "nothing new to add"
-else
-  git add -A
-  git commit -q -m "ci: adopt the Enterprise Production Framework
+  echo "nothing new to add: $REPO is already on the framework"
+  exit 0
+fi
+git add -A
+git commit -q -m "ci: adopt the Enterprise Production Framework
 
 Lint, tests with the 80% coverage gate (whole project and changed lines),
 secret scan, dependency audit and the structured review gate, all from
-Z0lGi4/enterprise-ci-templates@v1."
-  git push -q -u origin "$PRBRANCH"
-fi
+Z0lGi4/enterprise-ci-templates at ${RELEASE_SHA}."
+git push -q -u origin "$PRBRANCH"
 if [ -z "$(gh pr list -R "$REPO" --head "$PRBRANCH" --json number -q '.[].number')" ]; then
   gh pr create -R "$REPO" -B "$BRANCH" -H "$PRBRANCH" \
     -t "ci: adopt the Enterprise Production Framework" \
-    -b "Adds the framework caller (\`@v1\`), grouped weekly Dependabot$( [ "$KIND" = python ] && echo ', and a local `ci.sh`' ). Branch protection now requires the five \`ci /\` checks, so this PR is gated by the gates it adds."
+    -b "Adds the framework caller (pinned by SHA), grouped weekly Dependabot$( [ "$KIND" = python ] && echo ', and a local `ci.sh`' ). Branch protection now requires the five \`ci /\` checks, so this PR is gated by the gates it adds."
 else
   echo "bootstrap PR already open: $(gh pr list -R "$REPO" --head "$PRBRANCH" --json url -q '.[0].url')"
 fi

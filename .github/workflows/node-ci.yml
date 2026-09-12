@@ -84,7 +84,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { fetch-depth: 0 }
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@v1
+      # This repo, at the exact commit of the workflow that is running — so a
+      # workflow pinned by SHA never pulls a floating action. Nothing here is
+      # secret; the repo is public.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: Z0lGi4/enterprise-ci-templates
+          ref: ${{ github.job_workflow_sha }}
+          path: .framework
+      - uses: ./.framework/.github/actions/secret-scan
+      # The framework checkout must not be in the tree when tests, coverage
+      # or lint look at it: its fixtures contain tests of their own.
+      - run: rm -rf .framework
 
   dependency-audit:
     runs-on: ubuntu-latest
@@ -124,7 +135,15 @@ jobs:
         with: { fetch-depth: 0 }
       # One implementation for python-ci, node-ci and the standalone
       # review-agent.yml: see .github/actions/review-agent/action.yml.
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/review-agent@v1
+      # This repo, at the exact commit of the workflow that is running — so a
+      # workflow pinned by SHA never pulls a floating action. Nothing here is
+      # secret; the repo is public.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: Z0lGi4/enterprise-ci-templates
+          ref: ${{ github.job_workflow_sha }}
+          path: .framework
+      - uses: ./.framework/.github/actions/review-agent
         with:
           oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base-ref: ${{ github.base_ref }}

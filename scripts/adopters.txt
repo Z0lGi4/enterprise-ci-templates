@@ -1,0 +1,8 @@
+# One owner/repo per line: every repo whose .github/workflows/ci.yml calls a
+# framework workflow by SHA. scripts/release.sh opens a bump PR on each.
+Z0lGi4/seoforge-ai
+Z0lGi4/memory-medic
+Z0lGi4/ai-company-orchestrator
+Z0lGi4/ai-booking-agent
+Z0lGi4/branded-video-factory
+Z0lGi4/faceless-video-factory

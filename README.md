@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   ci:
-    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@v1
+    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@<sha> # v1
     # or node-ci.yml for TypeScript/JavaScript repos
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -72,9 +72,18 @@ A gate that passes when it cannot run is not a gate.
 
 ### Releasing a template change
 
-Adopters pin `@v1`, not `@main`. After a merge is green here, run
-`bash scripts/release.sh` to move the tag; until then adopters are
-unaffected. A bad merge is contained to this repo's fixture workflows.
+Adopters pin the reusable workflows by **full commit SHA** (`@<sha> # v1`),
+never by tag or branch: a moved ref would change what runs in every adopter
+with no pull request anywhere. After a merge is green here, run
+`bash scripts/release.sh`: it opens a bump PR on every repo in
+`scripts/adopters.txt`, each gated by that repo's own checks — including the
+review-agent this repo ships. The `v1` tag is moved too, as a human-readable
+marker of the current release only; nothing executes from it.
+
+Inside the workflows, this repo's own composite actions are used from a
+checkout of this repo at `github.job_workflow_sha` — the same commit the
+caller pinned — so a pinned workflow can never pull a floating action.
+That checkout is why this repo is public; it holds nothing secret.
 
 Coverage is enforced twice on a PR: the whole project must stay at or above
 80%, **and** the lines the PR changes must be at least 80% covered
@@ -86,9 +95,10 @@ large untested addition hiding behind a healthy project-wide number.
 ```bash
 bash scripts/bootstrap-repo.sh <owner>/<repo> python    # or node; --branch, --python
 ```
-Opens the adoption PR (caller `@v1`, grouped Dependabot, `ci.sh`), sets the
-secret from `CLAUDE_CODE_OAUTH_TOKEN` in your environment, and applies branch
-protection with `enforce_admins`. Idempotent. The steps below are what it does.
+Opens the adoption PR (caller pinned to the current release SHA, grouped
+Dependabot, `ci.sh`), sets the secret from `CLAUDE_CODE_OAUTH_TOKEN` in your
+environment, and merges the five `ci /` checks plus `enforce_admins` into the
+branch's existing protection. Idempotent. The steps below are what it does.
 
 ## Branch protection
 
@@ -105,9 +115,9 @@ the calling job in your own `.github/workflows/ci.yml`).
 
 - Third-party actions are pinned to commit SHAs, not mutable tags — update
   deliberately, not automatically.
-  This repo's own composite actions are referenced as `@v1` from inside the
-  reusable workflows, the same tag adopters pin, so a pinned workflow can
-  never pull a floating action. `scripts/release.sh` moves the tag.
+  This repo's own composite actions are used from a checkout of this repo
+  at `github.job_workflow_sha`, the commit the caller pinned, so nothing in
+  the chain is a floating ref.
   Automated supply-chain scanners flag it as "third-party action unpinned";
   it is first-party, same owner, same trust boundary as the workflow calling
   it. Pin it to a SHA only if this repo ever stops being ours.
