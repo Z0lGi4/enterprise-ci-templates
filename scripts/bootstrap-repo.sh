@@ -41,6 +41,15 @@ if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
 fi
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 
+# A repo that already has a non-framework ci.yml would never produce the
+# `ci / *` check names; requiring them would lock the branch. Stop first.
+EXISTING_CI="$(gh api "repos/$REPO/contents/.github/workflows/ci.yml?ref=$BRANCH" -q .content 2>/dev/null | base64 -d 2>/dev/null || true)"
+if [ -n "$EXISTING_CI" ] && ! printf '%s' "$EXISTING_CI" | grep -q "enterprise-ci-templates/.github/workflows/"; then
+  echo "$REPO already has .github/workflows/ci.yml and it is not a framework caller." >&2
+  echo "Fold the gates into it by hand (see README, 'Existing repos with their own CI'); this script only bootstraps repos without one." >&2
+  exit 1
+fi
+
 # ---------------------------------------------------------------- 1. secret
 printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo "$REPO"
 echo "secret set on $REPO"
@@ -48,7 +57,16 @@ echo "secret set on $REPO"
 # ------------------------------------------------------ 2. branch protection
 # The protection endpoint is a full replace, so the current rules are read
 # and carried over; only the required contexts grow and enforce_admins is set.
-CURRENT="$(gh api "repos/$REPO/branches/$BRANCH/protection" 2>/dev/null || echo '{}')"
+ERR="$(mktemp)"
+if CURRENT="$(gh api "repos/$REPO/branches/$BRANCH/protection" 2>"$ERR")"; then
+  :
+elif grep -q "HTTP 404" "$ERR"; then
+  CURRENT='{}'   # no protection yet — the only failure that means "start fresh"
+else
+  echo "Could not read current branch protection; refusing to overwrite it blind:" >&2
+  cat "$ERR" >&2; rm -f "$ERR"; exit 1
+fi
+rm -f "$ERR"
 PAYLOAD="$(printf '%s' "$CURRENT" | python3 -c '
 import json, sys
 cur = json.load(sys.stdin)
