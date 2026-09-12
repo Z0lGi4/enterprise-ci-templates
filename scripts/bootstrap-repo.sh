@@ -5,14 +5,14 @@
 #
 # What it does, in this order, each step idempotent:
 #   1. The CLAUDE_CODE_OAUTH_TOKEN secret, read from the environment
-#   2. Branch protection: the five `ci /` checks ADDED to whatever is already
-#      required, enforce_admins on; existing review rules, push restrictions,
-#      linear-history and signature settings are read first and preserved
-#   3. A pull request ("ci/bootstrap-framework") adding
+#   2. A pull request ("ci/bootstrap-framework") adding
 #      .github/workflows/ci.yml calling python-ci.yml or node-ci.yml pinned
 #      by full commit SHA (the current release; scripts/release.sh bumps it),
 #      grouped weekly Dependabot, and ci.sh for Python repos. If that branch
 #      already exists from an earlier run it is reused, never overwritten.
+#   3. Branch protection, last: the five `ci /` checks ADDED to whatever is
+#      already required, enforce_admins on; existing review rules, push
+#      restrictions and history/signature settings are read first and kept.
 #
 # Files go in through a PR, never a direct push: the repo's own new gates
 # then review the change that adds them. Merge it once green; nothing else
@@ -47,7 +47,7 @@ RELEASE_SHA="$(git -C "$HERE" rev-parse v1^{commit})"
 # A repo that already has a non-framework ci.yml would never produce the
 # `ci / *` check names; requiring them would lock the branch. Stop first.
 EXISTING_CI="$(gh api "repos/$REPO/contents/.github/workflows/ci.yml?ref=$BRANCH" -q .content 2>/dev/null | base64 -d 2>/dev/null || true)"
-if [ -n "$EXISTING_CI" ] && ! printf '%s' "$EXISTING_CI" | grep -q "enterprise-ci-templates/.github/workflows/"; then
+if [ -n "$EXISTING_CI" ] && ! printf '%s' "$EXISTING_CI" | grep -Eq "enterprise-ci-templates/.github/workflows/(python|node)-ci\.yml"; then
   echo "$REPO already has .github/workflows/ci.yml and it is not a framework caller." >&2
   echo "Fold the gates into it by hand (see README, 'Existing repos with their own CI'); this script only bootstraps repos without one." >&2
   exit 1
@@ -57,7 +57,112 @@ fi
 printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo "$REPO"
 echo "secret set on $REPO"
 
-# ------------------------------------------------------ 2. branch protection
+# ------------------------------------------------------------- 2. the PR
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+gh repo clone "$REPO" "$WORK/repo" -- --quiet --branch "$BRANCH"
+cd "$WORK/repo"
+PRBRANCH=ci/bootstrap-framework
+if git ls-remote --exit-code --heads origin "$PRBRANCH" >/dev/null 2>&1; then
+  # Explicit refspec: independent of how the clone's fetch refspec was set up.
+  git fetch --quiet origin "+refs/heads/$PRBRANCH:refs/remotes/origin/$PRBRANCH"
+  git checkout -q -B "$PRBRANCH" "origin/$PRBRANCH"
+  echo "reusing existing branch $PRBRANCH"
+else
+  git checkout -q -b "$PRBRANCH"
+fi
+
+mkdir -p .github/workflows
+if [ ! -f .github/workflows/ci.yml ]; then
+  cat > .github/workflows/ci.yml <<EOF
+# Enterprise Production Framework — https://github.com/Z0lGi4/enterprise-ci-templates
+# lint, tests with the 80% coverage gate (whole project and changed lines),
+# secret scan, dependency audit, structured LLM review. Pinned by full commit
+# SHA; the framework's release script opens a PR here to bump it, so a new
+# framework version never lands in this repo without a reviewed PR.
+name: CI
+on:
+  push:
+    branches: [$BRANCH]
+  pull_request:
+concurrency:
+  group: ci-\${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ci:
+    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/${KIND}-ci.yml@${RELEASE_SHA} # v1
+EOF
+  if [ "$KIND" = python ]; then
+    printf '    with:\n      python-version: "%s"\n' "$PYVER" >> .github/workflows/ci.yml
+  fi
+  cat >> .github/workflows/ci.yml <<'EOF'
+    secrets:
+      # This one secret, explicitly. Never `secrets: inherit` into another repo.
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+EOF
+  echo "added .github/workflows/ci.yml"
+else
+  echo "kept existing .github/workflows/ci.yml (fold the gates in by hand if it is not a framework caller)"
+fi
+
+if [ ! -f .github/dependabot.yml ]; then
+  ECO=$([ "$KIND" = python ] && echo pip || echo npm)
+  cat > .github/dependabot.yml <<EOF
+# Minor and patch bumps arrive as one PR per ecosystem per week, so the
+# review gate is spent on code, not on lockfile churn. Majors stay separate.
+# The framework pin is ignored: its release script opens the bump PR here
+# deliberately, so Dependabot must not race it with a second one.
+version: 2
+updates:
+  - package-ecosystem: "$ECO"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "Z0lGi4/enterprise-ci-templates*"
+EOF
+  echo "added .github/dependabot.yml"
+fi
+
+if [ "$KIND" = python ] && [ ! -f ci.sh ]; then
+  cp "$HERE/scripts/ci.sh" ci.sh
+  echo "added ci.sh"
+fi
+
+if [ -z "$(git status --porcelain)" ]; then
+  echo "nothing new to add: $REPO is already on the framework"
+else
+git add -A
+git commit -q -m "ci: adopt the Enterprise Production Framework
+
+Lint, tests with the 80% coverage gate (whole project and changed lines),
+secret scan, dependency audit and the structured review gate, all from
+Z0lGi4/enterprise-ci-templates at ${RELEASE_SHA}."
+git push -q -u origin "$PRBRANCH"
+if [ -z "$(gh pr list -R "$REPO" --head "$PRBRANCH" --json number -q '.[].number')" ]; then
+  gh pr create -R "$REPO" -B "$BRANCH" -H "$PRBRANCH" \
+    -t "ci: adopt the Enterprise Production Framework" \
+    -b "Adds the framework caller (pinned by SHA), grouped weekly Dependabot$( [ "$KIND" = python ] && echo ', and a local `ci.sh`' ). Branch protection now requires the five \`ci /\` checks, so this PR is gated by the gates it adds."
+else
+  echo "bootstrap PR already open: $(gh pr list -R "$REPO" --head "$PRBRANCH" --json url -q '.[0].url')"
+fi
+fi
+# ------------------------------------------------------ 3. branch protection
+# Applied LAST, after the PR that adds the workflow able to produce the
+# required checks exists — so an interrupted run never leaves a branch that
+# nothing can merge into.
 # The protection endpoint is a full replace, so the current rules are read
 # and carried over; only the required contexts grow and enforce_admins is set.
 ERR="$(mktemp)"
@@ -113,107 +218,5 @@ print(json.dumps(out))
 printf '%s' "$PAYLOAD" | gh api -X PUT "repos/$REPO/branches/$BRANCH/protection" --input - >/dev/null
 echo "branch protection on $BRANCH: five ci / checks required (existing rules kept), enforce_admins on"
 
-# ------------------------------------------------------------- 3. the PR
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
-gh repo clone "$REPO" "$WORK/repo" -- --quiet --branch "$BRANCH"
-cd "$WORK/repo"
-PRBRANCH=ci/bootstrap-framework
-if git ls-remote --exit-code --heads origin "$PRBRANCH" >/dev/null 2>&1; then
-  # Explicit refspec: independent of how the clone's fetch refspec was set up.
-  git fetch --quiet origin "+refs/heads/$PRBRANCH:refs/remotes/origin/$PRBRANCH"
-  git checkout -q -B "$PRBRANCH" "origin/$PRBRANCH"
-  echo "reusing existing branch $PRBRANCH"
-else
-  git checkout -q -b "$PRBRANCH"
-fi
-
-mkdir -p .github/workflows
-if [ ! -f .github/workflows/ci.yml ]; then
-  cat > .github/workflows/ci.yml <<EOF
-# Enterprise Production Framework — https://github.com/Z0lGi4/enterprise-ci-templates
-# lint, tests with the 80% coverage gate (whole project and changed lines),
-# secret scan, dependency audit, structured LLM review. Pinned by full commit
-# SHA; the framework's release script opens a PR here to bump it, so a new
-# framework version never lands in this repo without a reviewed PR.
-name: CI
-on:
-  push:
-    branches: [$BRANCH]
-  pull_request:
-concurrency:
-  group: ci-\${{ github.ref }}
-  cancel-in-progress: true
-jobs:
-  ci:
-    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/${KIND}-ci.yml@${RELEASE_SHA} # v1
-EOF
-  if [ "$KIND" = python ]; then
-    printf '    with:\n      python-version: "%s"\n' "$PYVER" >> .github/workflows/ci.yml
-  fi
-  cat >> .github/workflows/ci.yml <<'EOF'
-    secrets:
-      # This one secret, explicitly. Never `secrets: inherit` into another repo.
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-EOF
-  echo "added .github/workflows/ci.yml"
-else
-  echo "kept existing .github/workflows/ci.yml (fold the gates in by hand if it is not a framework caller)"
-fi
-
-if [ ! -f .github/dependabot.yml ]; then
-  ECO=$([ "$KIND" = python ] && echo pip || echo npm)
-  cat > .github/dependabot.yml <<EOF
-# Minor and patch bumps arrive as one PR per ecosystem per week, so the
-# review gate is spent on code, not on lockfile churn. Majors stay separate.
-# The framework's own @v1 ref is ignored: it is moved by the templates'
-# release script, and Dependabot cannot read that private repo anyway.
-version: 2
-updates:
-  - package-ecosystem: "$ECO"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types: ["minor", "patch"]
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types: ["minor", "patch"]
-    ignore:
-      - dependency-name: "Z0lGi4/enterprise-ci-templates*"
-EOF
-  echo "added .github/dependabot.yml"
-fi
-
-if [ "$KIND" = python ] && [ ! -f ci.sh ]; then
-  cp "$HERE/scripts/ci.sh" ci.sh
-  echo "added ci.sh"
-fi
-
-if [ -z "$(git status --porcelain)" ]; then
-  echo "nothing new to add: $REPO is already on the framework"
-  exit 0
-fi
-git add -A
-git commit -q -m "ci: adopt the Enterprise Production Framework
-
-Lint, tests with the 80% coverage gate (whole project and changed lines),
-secret scan, dependency audit and the structured review gate, all from
-Z0lGi4/enterprise-ci-templates at ${RELEASE_SHA}."
-git push -q -u origin "$PRBRANCH"
-if [ -z "$(gh pr list -R "$REPO" --head "$PRBRANCH" --json number -q '.[].number')" ]; then
-  gh pr create -R "$REPO" -B "$BRANCH" -H "$PRBRANCH" \
-    -t "ci: adopt the Enterprise Production Framework" \
-    -b "Adds the framework caller (pinned by SHA), grouped weekly Dependabot$( [ "$KIND" = python ] && echo ', and a local `ci.sh`' ). Branch protection now requires the five \`ci /\` checks, so this PR is gated by the gates it adds."
-else
-  echo "bootstrap PR already open: $(gh pr list -R "$REPO" --head "$PRBRANCH" --json url -q '.[0].url')"
-fi
 echo
 echo "Done. Merge the bootstrap PR once it is green; if coverage is under 80% it will be red until the tests come up."
