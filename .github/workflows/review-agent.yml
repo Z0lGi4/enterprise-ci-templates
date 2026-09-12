@@ -9,7 +9,7 @@ name: Review Agent (reusable)
 #   on: pull_request
 #   jobs:
 #     review-agent:
-#       uses: Z0lGi4/enterprise-ci-templates/.github/workflows/review-agent.yml@v1
+#       uses: Z0lGi4/enterprise-ci-templates/.github/workflows/review-agent.yml@<full commit sha> # v1
 #       secrets:
 #         CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 on:
