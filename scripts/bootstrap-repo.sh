@@ -120,7 +120,8 @@ gh repo clone "$REPO" "$WORK/repo" -- --quiet --branch "$BRANCH"
 cd "$WORK/repo"
 PRBRANCH=ci/bootstrap-framework
 if git ls-remote --exit-code --heads origin "$PRBRANCH" >/dev/null 2>&1; then
-  git fetch --quiet origin "$PRBRANCH"
+  # Explicit refspec: independent of how the clone's fetch refspec was set up.
+  git fetch --quiet origin "+refs/heads/$PRBRANCH:refs/remotes/origin/$PRBRANCH"
   git checkout -q -B "$PRBRANCH" "origin/$PRBRANCH"
   echo "reusing existing branch $PRBRANCH"
 else
