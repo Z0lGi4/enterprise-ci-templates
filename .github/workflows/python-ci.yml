@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ inputs.python-version }}
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@main
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@v1
         with:
           working-directory: ${{ inputs.working-directory }}
           test-deps: 'true'
@@ -93,7 +93,7 @@ jobs:
           # still attacker-shaped input as far as the shell is concerned.
           BASE_REF: ${{ github.base_ref }}
         run: |
-          pip install diff-cover
+          pip install diff-cover==10.5.1
           diff-cover coverage.xml --compare-branch="origin/$BASE_REF" --fail-under=80
 
   secret-scan:
@@ -105,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { fetch-depth: 0 }
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@main
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@v1
 
   dependency-audit:
     runs-on: ubuntu-latest
@@ -121,7 +121,7 @@ jobs:
       # (setuptools PYSEC-2026-3447 failed branded-video-factory this way) out
       # of a result that is meant to be about the project's dependencies.
       - run: python -m pip install --upgrade pip setuptools && pip install pip-audit
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@main
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/python-install@v1
         with:
           working-directory: ${{ inputs.working-directory }}
       # --skip-editable: the project itself is installed editable so its
@@ -143,7 +143,7 @@ jobs:
         with: { fetch-depth: 0 }
       # One implementation for python-ci, node-ci and the standalone
       # review-agent.yml: see .github/actions/review-agent/action.yml.
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/review-agent@main
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/review-agent@v1
         with:
           oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base-ref: ${{ github.base_ref }}

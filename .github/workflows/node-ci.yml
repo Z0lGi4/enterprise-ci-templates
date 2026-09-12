@@ -72,7 +72,7 @@ jobs:
           # path inside the repo, which is empty when working-directory is '.'.
           PREFIX=$(git rev-parse --show-prefix)
           sed -i "s#^SF:#SF:${PREFIX}#" coverage/lcov.info
-          pipx install diff-cover
+          pipx install diff-cover==10.5.1
           diff-cover coverage/lcov.info --compare-branch="origin/$BASE_REF" --fail-under=80
 
   secret-scan:
@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { fetch-depth: 0 }
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@main
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@v1
 
   dependency-audit:
     runs-on: ubuntu-latest
@@ -124,7 +124,7 @@ jobs:
         with: { fetch-depth: 0 }
       # One implementation for python-ci, node-ci and the standalone
       # review-agent.yml: see .github/actions/review-agent/action.yml.
-      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/review-agent@main
+      - uses: Z0lGi4/enterprise-ci-templates/.github/actions/review-agent@v1
         with:
           oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base-ref: ${{ github.base_ref }}

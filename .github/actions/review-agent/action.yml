@@ -49,13 +49,15 @@ runs:
       run: |
         git diff "origin/$BASE_REF"...HEAD > /tmp/pr.diff
         git diff "origin/$BASE_REF"...HEAD --name-only > /tmp/pr.files
-        # A change that touches only prose or generated lockfiles has nothing a
-        # code review can find, and the review costs real plan usage and 2-3
-        # minutes. The skip is decided by this fixed list, never by the model,
-        # and it is written to the summary so it cannot pass for a clean review.
-        if [ -s /tmp/pr.files ] && ! grep -Ev '(\.(md|rst|txt)$|(^|/)(LICENSE|CHANGELOG|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|poetry\.lock|uv\.lock|Pipfile\.lock|Cargo\.lock)$)' /tmp/pr.files > /dev/null; then
+        # A change that touches only prose has nothing a code review can find,
+        # and the review costs real plan usage and 2-3 minutes. Lockfiles are
+        # deliberately NOT on this list: a dependency bump is a supply-chain
+        # change and gets reviewed. The skip is decided by this fixed list,
+        # never by the model, and it is written to the summary so it cannot
+        # pass for a clean review.
+        if [ -s /tmp/pr.files ] && ! grep -Ev '(\.(md|rst|txt)$|(^|/)(LICENSE|CHANGELOG)$)' /tmp/pr.files > /dev/null; then
           echo "skip=true" >> "$GITHUB_OUTPUT"
-          echo "### review-agent skipped: documentation/lockfile-only change" >> "$GITHUB_STEP_SUMMARY"
+          echo "### review-agent skipped: documentation-only change" >> "$GITHUB_STEP_SUMMARY"
           echo "Changed files:" >> "$GITHUB_STEP_SUMMARY"
           sed 's/^/- /' /tmp/pr.files >> "$GITHUB_STEP_SUMMARY"
         else
@@ -65,7 +67,10 @@ runs:
     - name: Install Claude Code
       if: steps.diff.outputs.skip != 'true'
       shell: bash
-      run: npm install -g "@anthropic-ai/claude-code@${{ inputs.claude-code-version }}"
+      env:
+        # Through env, not interpolated into the script (same rule as base-ref).
+        CLAUDE_CODE_VERSION: ${{ inputs.claude-code-version }}
+      run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
     - name: Structured review
       if: steps.diff.outputs.skip != 'true'
