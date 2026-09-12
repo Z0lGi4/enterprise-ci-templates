@@ -53,6 +53,28 @@ The secret is declared optional at the `workflow_call` level only so that
 saying how to set it; with a rejected token, `claude -p`'s own error is printed.
 A gate that passes when it cannot run is not a gate.
 
+### What `review-agent` does on a PR
+
+- Diffs the PR against its base and hands the diff to `claude -p` with a fixed
+  JSON schema; read-only tools stay on so it can read the code around the
+  change, write/execute tools are off.
+- **Findings become inline annotations** on the PR's changed-files view
+  (file and line when the model identifies them) and a step-summary table.
+  CRITICAL/HIGH fail the check.
+- **One retry** if a run ends without a verdict (turn budget, transient API
+  error), then it fails closed with claude's own output in the log.
+- **Skipped, and says so, for documentation/lockfile-only diffs** (`*.md`,
+  `*.rst`, `*.txt`, `LICENSE`, `CHANGELOG`, lockfiles). The list is fixed in
+  the action, never decided by the model.
+- Repos with their own lint/test pipeline can call just the gate:
+  `.github/workflows/review-agent.yml` (see the header of that file).
+
+### Releasing a template change
+
+Adopters pin `@v1`, not `@main`. After a merge is green here, run
+`bash scripts/release.sh` to move the tag; until then adopters are
+unaffected. A bad merge is contained to this repo's fixture workflows.
+
 Coverage is enforced twice on a PR: the whole project must stay at or above
 80%, **and** the lines the PR changes must be at least 80% covered
 (`diff-cover` against the PR's base branch). The second check is what stops a
