@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   ci:
-    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@main
+    uses: Z0lGi4/enterprise-ci-templates/.github/workflows/python-ci.yml@v1
     # or node-ci.yml for TypeScript/JavaScript repos
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
