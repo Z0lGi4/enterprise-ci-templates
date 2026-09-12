@@ -88,9 +88,13 @@ jobs:
         # a repo sitting at 95%. This one can: only lines the PR touches count.
         if: github.event_name == 'pull_request'
         working-directory: ${{ inputs.working-directory }}
+        env:
+          # Through env, never interpolated into the script: a branch name is
+          # still attacker-shaped input as far as the shell is concerned.
+          BASE_REF: ${{ github.base_ref }}
         run: |
           pip install diff-cover
-          diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" --fail-under=80
+          diff-cover coverage.xml --compare-branch="origin/$BASE_REF" --fail-under=80
 
   secret-scan:
     runs-on: ubuntu-latest

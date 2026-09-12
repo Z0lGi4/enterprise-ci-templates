@@ -59,10 +59,14 @@ jobs:
         # test step just wrote, and fails if the runner did not write one.
         if: github.event_name == 'pull_request'
         working-directory: ${{ inputs.working-directory }}
+        env:
+          # Through env, never interpolated into the script: a branch name is
+          # still attacker-shaped input as far as the shell is concerned.
+          BASE_REF: ${{ github.base_ref }}
         run: |
           test -f coverage/lcov.info || { echo '::error::coverage/lcov.info missing - the test runner must emit lcov'; exit 1; }
           pipx install diff-cover
-          diff-cover coverage/lcov.info --compare-branch="origin/${{ github.base_ref }}" --fail-under=80
+          diff-cover coverage/lcov.info --compare-branch="origin/$BASE_REF" --fail-under=80
 
   secret-scan:
     runs-on: ubuntu-latest
