@@ -92,6 +92,8 @@ jobs:
           repository: Z0lGi4/enterprise-ci-templates
           ref: ${{ github.job_workflow_sha }}
           path: .framework
+      # gitleaks runs in git mode over THIS repo's commits; the untracked
+      # .framework checkout (a separate repository) is never part of that scan.
       - uses: ./.framework/.github/actions/secret-scan
       # The framework checkout must not be in the tree when tests, coverage
       # or lint look at it: its fixtures contain tests of their own.
