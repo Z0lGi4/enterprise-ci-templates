@@ -23,6 +23,16 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Drop the framework checkout
+      # The reviewer reads the workspace with Read/Glob/Grep while consuming an
+      # untrusted diff. The framework checkout this action came from is not
+      # part of the repository under review and is removed first; composite
+      # steps are loaded when the action starts, so this is safe.
+      shell: bash
+      run: |
+        case "$GITHUB_ACTION_PATH" in
+          "$GITHUB_WORKSPACE"/.framework/*) rm -rf "$GITHUB_WORKSPACE/.framework" ;;
+        esac
     - name: Check for CLAUDE_CODE_OAUTH_TOKEN
       shell: bash
       env:

@@ -45,10 +45,14 @@ bump_one() {
   base="$(gh api "repos/$repo" -q .default_branch)" || return 1
   cur="$(gh api "repos/$repo/contents/.github/workflows/ci.yml?ref=$base" -q .content | base64 -d)" || return 1
   [ -n "$cur" ] || { echo "$repo: no ci.yml on $base" >&2; return 1; }
+  # A file with no framework reference is an error, not "up to date": a
+  # drifted or hand-edited caller must not be reported as rolled out.
+  printf '%s' "$cur" | grep -q "enterprise-ci-templates/.github/workflows/" || { echo "$repo: ci.yml has no framework reference; not an adopter in the expected shape" >&2; return 1; }
+  if printf '%s' "$cur" | grep -q "@${SHA}"; then echo "$repo: already at $SHORT"; return 0; fi
   # Any existing pin of a framework workflow (SHA, tag or branch) -> this SHA.
   # `|` is the sed delimiter because the replacement contains `#`.
   new="$(printf '%s' "$cur" | sed -E "s|(Z0lGi4/enterprise-ci-templates/\.github/workflows/[a-z-]+\.yml)@[A-Za-z0-9._-]+( *# *v1)?|\1@${SHA} # v1|g")" || return 1
-  if [ "$new" = "$cur" ]; then echo "$repo: already at $SHORT"; return 0; fi
+  [ "$new" != "$cur" ] || { echo "$repo: framework reference present but the pin pattern did not match; fix by hand" >&2; return 1; }
   br="ci/framework-${SHORT}"
   headsha="$(gh api "repos/$repo/git/ref/heads/$base" -q .object.sha)" || return 1
   err="$(mktemp)" || return 1
@@ -58,7 +62,7 @@ bump_one() {
   rm -f "$err"
   fsha="$(gh api "repos/$repo/contents/.github/workflows/ci.yml?ref=$br" -q .sha)" || return 1
   printf '%s' "$new" | base64 -w0     | jq -Rn --arg m "ci: framework ${SHORT}" --arg b "$br" --arg s "$fsha" '{message:$m, branch:$b, sha:$s, content:input}'     | gh api -X PUT "repos/$repo/contents/.github/workflows/ci.yml" --input - >/dev/null || return 1
-  url="$(gh pr list -R "$repo" --head "$br" --json url -q '.[0].url')" || return 1
+  url="$(gh pr list -R "$repo" --head "$br" --state open --json url -q '.[0].url')" || return 1
   if [ -z "$url" ]; then
     url="$(gh pr create -R "$repo" -B "$base" -H "$br" -t "ci: framework ${SHORT}"       -b "Pins the framework at enterprise-ci-templates@${SHA} (v1). Changes: https://github.com/Z0lGi4/enterprise-ci-templates/commits/main")" || return 1
   fi
