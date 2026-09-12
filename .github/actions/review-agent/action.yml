@@ -67,7 +67,10 @@ runs:
     - name: Install Claude Code
       if: steps.diff.outputs.skip != 'true'
       shell: bash
-      run: npm install -g "@anthropic-ai/claude-code@${{ inputs.claude-code-version }}"
+      env:
+        # Through env, not interpolated into the script (same rule as base-ref).
+        CLAUDE_CODE_VERSION: ${{ inputs.claude-code-version }}
+      run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
     - name: Structured review
       if: steps.diff.outputs.skip != 'true'
