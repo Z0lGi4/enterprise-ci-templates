@@ -81,6 +81,15 @@ Coverage is enforced twice on a PR: the whole project must stay at or above
 (`diff-cover` against the PR's base branch). The second check is what stops a
 large untested addition hiding behind a healthy project-wide number.
 
+## Bootstrapping a repo in one command
+
+```bash
+bash scripts/bootstrap-repo.sh <owner>/<repo> python    # or node; --branch, --python
+```
+Opens the adoption PR (caller `@v1`, grouped Dependabot, `ci.sh`), sets the
+secret from `CLAUDE_CODE_OAUTH_TOKEN` in your environment, and applies branch
+protection with `enforce_admins`. Idempotent. The steps below are what it does.
+
 ## Branch protection
 
 Required status checks are the five job names, not a single `ci` check:
