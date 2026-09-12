@@ -1,7 +1,16 @@
+# Minor and patch bumps arrive as one PR per ecosystem per week, so the
+# review gate is spent on code, not on lockfile churn. Majors stay separate.
+# The framework's own @v1 ref is ignored: v1 is moved deliberately by the
+# templates' release script, and Dependabot cannot read that private repo
+# anyway (its run errored on every repo until this).
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directories: ["/", "/.github/actions/*"]
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+- package-ecosystem: github-actions
+  directories:
+  - /
+  - /.github/actions/*
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+  ignore:
+  - dependency-name: Z0lGi4/enterprise-ci-templates*
