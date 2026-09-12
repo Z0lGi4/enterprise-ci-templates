@@ -47,12 +47,16 @@ Required repo secret: **`CLAUDE_CODE_OAUTH_TOKEN`** — generate with `claude se
 locally (requires a Claude subscription), then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
 This is *not* `ANTHROPIC_API_KEY` — that name is not used anywhere in this repo.
 
-This secret is optional at the `workflow_call` level, by design: `lint`, `test`,
-`secret-scan` and `dependency-audit` run regardless. **Without it, `review-agent`
-reports success without actually reviewing anything** — a visible `::warning::`
-fires (and is written to the run's step summary) on every PR, but the check
-still passes. Branch protection cannot tell that apart from a clean review.
-Set the secret before treating `ci / review-agent` as a meaningful gate.
+The secret is declared optional at the `workflow_call` level only so that
+`lint`, `test`, `secret-scan` and `dependency-audit` can run without it.
+**`review-agent` fails closed**: with no token the job errors with a message
+saying how to set it; with a rejected token, `claude -p`'s own error is printed.
+A gate that passes when it cannot run is not a gate.
+
+Coverage is enforced twice on a PR: the whole project must stay at or above
+80%, **and** the lines the PR changes must be at least 80% covered
+(`diff-cover` against the PR's base branch). The second check is what stops a
+large untested addition hiding behind a healthy project-wide number.
 
 ## Branch protection
 
