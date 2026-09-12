@@ -55,6 +55,10 @@ A gate that passes when it cannot run is not a gate.
 
 ### What `review-agent` does on a PR
 
+- Runs on same-repo, **non-draft** pull requests. Open work as a draft and
+  mark it ready when it is worth a review: every run is real plan usage, and
+  a day of reviewing every push can exhaust the plan's session window
+  (the gate then fails closed with the reset time in the log).
 - Diffs the PR against its base and hands the diff to `claude -p` with a fixed
   JSON schema; read-only tools stay on so it can read the code around the
   change, write/execute tools are off.

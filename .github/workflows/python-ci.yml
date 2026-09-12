@@ -165,9 +165,10 @@ jobs:
 
   review-agent:
     runs-on: ubuntu-latest
-    # Fork PRs never see the OAuth secret and must not run a step that would try
-    # to; same-repo PRs only. Dependabot PRs are same-repo and pass.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # Same-repo, non-draft PRs only: fork PRs never see the OAuth secret, and a
+    # draft is not ready for review — each run is real plan usage (a session
+    # limit was hit after a day of reviewing every push). Mark ready to review.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
     permissions:
       contents: read
     steps:
