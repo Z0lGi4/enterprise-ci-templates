@@ -93,7 +93,7 @@ jobs:
           # still attacker-shaped input as far as the shell is concerned.
           BASE_REF: ${{ github.base_ref }}
         run: |
-          pip install diff-cover
+          pip install diff-cover==10.5.1
           diff-cover coverage.xml --compare-branch="origin/$BASE_REF" --fail-under=80
 
   secret-scan:

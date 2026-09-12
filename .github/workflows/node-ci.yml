@@ -72,7 +72,7 @@ jobs:
           # path inside the repo, which is empty when working-directory is '.'.
           PREFIX=$(git rev-parse --show-prefix)
           sed -i "s#^SF:#SF:${PREFIX}#" coverage/lcov.info
-          pipx install diff-cover
+          pipx install diff-cover==10.5.1
           diff-cover coverage/lcov.info --compare-branch="origin/$BASE_REF" --fail-under=80
 
   secret-scan:

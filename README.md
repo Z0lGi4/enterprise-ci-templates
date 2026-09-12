@@ -64,7 +64,8 @@ A gate that passes when it cannot run is not a gate.
 - **One retry** if a run ends without a verdict (turn budget, transient API
   error), then it fails closed with claude's own output in the log.
 - **Skipped, and says so, for documentation/lockfile-only diffs** (`*.md`,
-  `*.rst`, `*.txt`, `LICENSE`, `CHANGELOG`, lockfiles). The list is fixed in
+  `*.rst`, `*.txt`, `LICENSE`, `CHANGELOG` — lockfiles are reviewed: a
+  dependency bump is a supply-chain change). The list is fixed in
   the action, never decided by the model.
 - Repos with their own lint/test pipeline can call just the gate:
   `.github/workflows/review-agent.yml` (see the header of that file).
@@ -95,10 +96,9 @@ the calling job in your own `.github/workflows/ci.yml`).
 
 - Third-party actions are pinned to commit SHAs, not mutable tags — update
   deliberately, not automatically.
-  The one intentional exception is this repo's own
-  `Z0lGi4/enterprise-ci-templates/.github/actions/secret-scan@main`, which
-  adopters reference by branch so a fix here reaches every repo without ten
-  follow-up PRs — the same reason the reusable workflows are called `@main`.
+  This repo's own composite actions are referenced as `@v1` from inside the
+  reusable workflows, the same tag adopters pin, so a pinned workflow can
+  never pull a floating action. `scripts/release.sh` moves the tag.
   Automated supply-chain scanners flag it as "third-party action unpinned";
   it is first-party, same owner, same trust boundary as the workflow calling
   it. Pin it to a SHA only if this repo ever stops being ours.
