@@ -106,7 +106,7 @@ runs:
             --output-format json \
             --json-schema "$SCHEMA" \
             --disallowed-tools "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch" \
-            --max-turns 25 < /tmp/pr.diff > /tmp/review.json \
+            --max-turns 40 < /tmp/pr.diff > /tmp/review.json \
           && python3 -c "import json,sys; sys.exit(0 if 'structured_output' in json.load(open('/tmp/review.json')) else 1)"
         }
         if ! review; then
