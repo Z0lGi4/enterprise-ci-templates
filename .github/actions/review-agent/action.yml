@@ -106,7 +106,7 @@ runs:
             --output-format json \
             --json-schema "$SCHEMA" \
             --disallowed-tools "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch" \
-            --max-turns 40 < /tmp/pr.diff > /tmp/review.json \
+            --max-turns 80 < /tmp/pr.diff > /tmp/review.json \
           && python3 -c "import json,sys; sys.exit(0 if 'structured_output' in json.load(open('/tmp/review.json')) else 1)"
         }
         if ! review; then
@@ -115,6 +115,15 @@ runs:
           echo "::warning::review attempt 1 produced no verdict; retrying once"
           head -c 1500 /tmp/review.json; echo
           if ! review; then
+            # Name the failure before dumping it. "produced no verdict"
+            # covers two unrelated causes -- the turn budget running out, and
+            # a real error (auth, quota, bad flags) -- and the token-length
+            # probe below implies the second, so a budget exhaustion reads as
+            # a credential problem. `subtype` says which in one word.
+            subtype=$(python3 -c "import json;print(json.load(open('/tmp/review.json')).get('subtype',''))" 2>/dev/null || true)
+            if [ "$subtype" = "error_max_turns" ]; then
+              echo '::error::the review agent ran out of turns before reaching a verdict. This is a diff-size problem, not a credential one: raise --max-turns here or split the pull request.'
+            fi
             # stdout is the JSON result, which is where claude reports its own
             # errors (auth, quota, bad flags).
             echo '::error::claude -p produced no verdict twice; its output follows'
